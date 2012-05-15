@@ -179,6 +179,6 @@ class BotFactory(protocol.ClientFactory):
         print "Connection failed. Reason: %s" % reason
 
 if __name__ == "__main__":
-    chan = 'botdev'
+    chan = 'lunch'
     reactor.connectTCP('irc', 6667, BotFactory('#' + chan))
     reactor.run()
