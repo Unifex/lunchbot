@@ -42,13 +42,15 @@ class Bot(irc.IRCClient):
     def act(self, user, channel, cmd):
         username = user.split('!',1)[0]
         global orders, menu
-        parts = cmd.split(' ',2)
+        parts = cmd.split(' ',3)
         op = parts[0]
         if op == 'help':
             self.msg(channel, '!help: show this message.')
             self.msg(channel, '!menu: show the menu.')
             self.msg(channel, '!order [<nick>] <n> <special instructions>: order your lunch. `no beetroot` etc can go in `special instructions`')
+            self.msg(channel, '!orderfor <name> <n> <special instructions>: order lunch for someone else. `no beetroot` etc can go in `special instructions`')
             self.msg(channel, '!cancel: cancel your order')
+            self.msg(channel, '!cancelfor <name>: cancel someone else\'s order')
             self.msg(channel, '!list: list current lunch orders')
             self.msg(channel, '!open: open orders for today, clear state')
 
@@ -78,6 +80,30 @@ class Bot(irc.IRCClient):
             else:
                 self.msg(channel, '%s added a %s.' % (username, menu[item]))
 
+        if op == 'orderfor':
+            if len(parts) < 3:
+                self.msg(channel, '!orderfor <name> <n> <special instructions>')
+                return
+
+            item = maybe_int(parts[2])
+            if item < 0 or item >= len(menu):
+                self.msg(channel, 'that\'s not a thing.')
+                return
+
+            special = len(parts) > 3 and parts[3] or None
+
+            ordername = parts[1]
+            if not ordername in orders:
+                orders[ordername] = []
+
+            orders[ordername].append((item,special))
+            if special:
+                self.msg(channel, '%s added a %s(%s) on behalf of %s.' % \
+                         (username, menu[item], special, ordername))
+            else:
+                self.msg(channel, '%s added a %s on behalf of %s.' % \
+                         (username, menu[item], ordername))
+
         if op == 'menu':
             self.msg(channel, 'LBQ lunch menu:')
             for i,m in enumerate(menu):
@@ -90,6 +116,21 @@ class Bot(irc.IRCClient):
             else:
                 del orders[username]
                 self.msg(channel, 'your order has been canceled.')
+                
+        if op == 'cancelfor':
+            if len(parts) < 2:
+                self.msg(channel, '!cancelfor <name>')
+                return
+            
+            ordername = parts[1]
+            
+            if ordername not in orders:
+                self.msg(channel, '%s doesn\'t have anything ordered!' % \
+                         (ordername))
+            else:
+                del orders[ordername]
+                self.msg(channel, 'the order for %s has been canceled by %s.' % \
+                         (ordername, username))
 
         if op == 'list':
             self.msg(channel, '%d orders for today:' \
@@ -138,6 +179,6 @@ class BotFactory(protocol.ClientFactory):
         print "Connection failed. Reason: %s" % reason
 
 if __name__ == "__main__":
-    chan = 'lunch'
+    chan = 'botdev'
     reactor.connectTCP('irc', 6667, BotFactory('#' + chan))
     reactor.run()
